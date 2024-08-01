@@ -76,7 +76,9 @@ sudo systemctl status jenkins;
 - CALLOUT: running flask app directly on the ec2 requires additional manual
   effort
   - NOTE: did this manually to verify that ELB env was configured correctly
-    - NOTE: would need to properly install python virtual environment e.
+    - NOTE: would need to properly install python virtual environment.
+- Auto capturing health checks based on the intended deploy, this would prevent
+  having to check logs to determine what the underlying issue is.
 
 REQUIRED: "OPTIMIZATION" section for that answers the question: What are the
 benefits of using managed services for cloud infrastructure? What are some
