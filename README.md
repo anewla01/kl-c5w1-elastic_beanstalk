@@ -130,7 +130,8 @@ highly dependent on it's configuration as well as the use case.
 One callout that became clear throughout this implementation, and is a sentiment that appears to be echo'd throughout
 blogs is that EB can be incredibly difficult to debug. Even more painful, its unclear how to provide a meaningful audit
 trail for things that go wrong with the underling system. This may present as a major issue for business that have
-strong regulatory requirements.
+strong regulatory requirements. Last, but certainly not least, as with any managed service decision, one should be 
+mindful of potential vendor lock issues that may arise.
 
 ## Discrete Optimizations:
 
