@@ -1,127 +1,164 @@
-# Kura Labs Cohort 5- Deployment Workload 1
-## Intro to CI/CD
+# Overview
 
-Welcome to Deployment Workload 1!  By now you’ve learned about system designs and the CI/CD Pipeline.  Let’s start putting it all together and see it in action.  
+Business use case:
+A Retail Bank wants to deploy an application to the cloud that is fully managed by AWS. In order to achieve this, their
+source code must be uploaded to and configured in AWS Elastic Beanstalk.
 
-Be sure to document each step in the process and explain WHY each step is important to the pipeline.
+This document serves as notes, and reflections on deploying the infrastructure needed to meet the business needs
+described above.
 
-## Instructions
+Complete Tech Stack:
 
-1. Clone this repository to your GitHub account
-2. Create an EC2
+- Cloud: AWS
+- Jenkins: for pipeline build and testing
+- Elastic Beanstalk: auto scaling and code deployment to machines
+- Application: REST Flask app (Python)
 
-	a. Follow document: [AWS EC2 Quickstart Guide](https://github.com/kura-labs-org/AWS-EC2-Quick-Start-Guide/blob/main/AWS%20EC2%20Quick%20Start%20Guide.pdf) if needed
-3. Install Jenkins onto the EC2
+## Purpose:
 
-	a. Connect to the EC2 terminal
+In this workstream several pieces of infrastructure are deployed by hand to strengthen an understanding of core concepts
+in software deployment. Launching an EC2 instance to serve Jenkins, onboarding a git repository to Jenkins, and
+deploying this repository (containing a Flask App) onto Elastic Beanstalk. It's important to note that many phases of
+this work was completed by hand, which represents a key opportunity for optimization in the future (see section on
+Optimizations).
 
- 	b. Enter the following commands to install Jenkins:
+## Tech Stack Key Concepts:
 
+- Jenkins: Jenkins is an incredibly flexible framework, in the context of this application, it serves as a system to 
+verify that code can be deployed (this includes testing and building code). Typically Jenkins could be leveraged in 
+a businesses CICD pipeline to ensure that code being delivered to production is safe and ready to use.
+- Elastic Beanstalk: Managed service provided by AWS to simplify deployment and management of web applications.
+    - Beanstalk Environment: A collection of AWS resources running an application. The environment should be configured
+      to match the desired needs of the final application. Multiple environments can be spunnup and configured, and each
+      can act in isolation, all the while running the same underlying application code.
+- Application: For this workstream, the underlying application was pre-provided. Key callouts about this system:
+    - A web application built in python using Flask. Storage being done leveraging sqllite.
+
+# Infrastructure Walkthrough
+
+## Installing Jenkins and Connecting Github
+
+[![jenkins sucess](./docs/resources/successful_build.png)](./docs/resources/successful_build.png)
+
+In order to enable the Jenkins build pipeline, an EC2 instance was configured, launched an deployed and the 
+Jenkins service was installed. In general Jenkins serves as a mean to verify t
+
+```bash
+# Updating the ubuntu environment 
+sudo apt update
+# Installing key required packages
+sudo apt install fontconfig openjdk-17-jre software-properties-common
+# Adding specific repository to enable installation
+sudo add-apt-repository ppa:deadsnakes/ppa
+
+# Installing specific version of python needed for underlying application that is being deployed
+sudo apt install python3.7 python3.7-venv
+
+# Downloading and installing Jenkins
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null;
+sudo apt-get update;
+sudo apt-get install jenkins;
+
+# Starting Jenkins and checking the status
+sudo systemctl start jenkins;
+sudo systemctl status jenkins;
 ```
-    $sudo apt update && sudo apt install fontconfig openjdk-17-jre software-properties-common && sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt install python3.7 python3.7-venv
-    $sudo wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
-    $echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
-    $sudo apt-get update
-    $sudo apt-get install jenkins
-    $sudo systemctl start jenkins
-    $sudo systemctl status jenkins
 
+### Trouble Shooting
+
+I chose to leverage fine grained permissioning with github, which then lead to some additional trouble-shooting.
+Although my builds were successful, a warning message was returned with the following:
+
+```bash
+{"message":"Resource not  accessible by personal access token","documentation_url":"https://docs.github.com/rest/commits/statuses#create-a-commit-status","status":"403"}
 ```
 
-If successful, the last command should show the Jenkins service “active (running)”
+This was resolved leveraging the correct fine grained permissions as follows:
 
-4. Log into Jenkins
+- access to select repository
+- Read and Write
+    - Repository permissions
+    - Actions
+    - Commit Statuses (NOTE: this was the one that was missing that led the issue noted above)
+    - Deployments
+    - Webhooks
+- Read ONLY
+    - Metadata (mandatory)
 
-	a. Enter initial admin password
+## Deploying Elastic Beanstalk (EB)
 
-	b. Install suggested plugins
+For this application Elastic Beanstalk provides a one stop shop for deploying a web application accessible via HTTPs.
+During provisioning of Elastic Beanstalk several roles were created, the most relevant one to this use case was
+`AWSElasticBeanstalkWebTier` which has been pre-configured to allow for traditional web application deployments. Elastic
+Beanstalk brings together several AWS resources to allow for the deployment of a web application (see diagram for more 
+details)
 
-	c. Create first admin user
+### Trouble Shooting
+A great deal of time (many many many hours) was spent triaging a 502 error that was being thrown due to 
+`web: ModuleNotFoundError: No module named 'application'`. Ultimately the root cause of this issue, in my case
+came from my `.ebextensions` not being appropriately rolled in the zip file that I was uploading to EB. As it turns out
+downloading a repository from githup, and using `zip` does not mean that all files will be appropriately rolled up.
 
-5. Create a Multi-Branch pipeline
 
-	a. Click on “New Item” in the menu on the left of the page
+# Diagram
+[![jenkins sucess](./docs/resources/c5w1_elastic_beanstalk_retail_banking_app.drawio.png)](./docs/resources/c5w1_elastic_beanstalk_retail_banking_app.drawio.png)
 
-	b. Enter a name for your pipeline
-  
-    c. Select “Multibranch Pipeline”
-  
-    d. Under “Branch Sources”, click “Add source” and select “GitHub”
-  
-    e. Click “+ Add” and select “Jenkins”
-  
-    f. Make sure “Kind” reads “Username and password”
 
-    g. Under “Username”, enter your GitHub username
+# Conclusion
 
-    h. Under “Password” ,enter your GitHub personal access token
+NOTE: I have not worked with Elastic Beanstalk prior to this engagement. The opinions below are some of my initial
+sentiments, compiled after a brief amount of research. In all likelihood, my opinions will change with more testing and
+research.
 
-To get the GitHub personal access token, first log into GitHub and click on your profile icon on the top right of the page.
+Managed services for cloud infrastructure present a major opportunity for any company that has a need to deploy
+applications. Often times these services significantly reduce the level of effort to maintain an application in
+production at the trade off of some additional premium. In general these managed services allow for increased
+scalability, while reduce maintenance overhead (via reducing friction to enable changes, and maintenance). As with any
+technology, inorder to make a complex task simpler to accomplish, there are several layers of abstraction that are
+introduced. These layers of abstraction act as both a blessing and a curse. The broad general use cases are accounted
+for, however, more complex use cases may not be easily achieved within these managed services, and may force the
+technology to into odd anti-patterns, or very length triage as issues require diving through many layers of interfaces.
 
-i. On the dropdown menu, click on “Settings”
+In the case of Elastic Beanstalk (EB), the end consumer faces no additional premium for leveraging their managed
+service, they simply the cost of the underlying resources that they aim to deploy. While your mileage may vary, given
+the layout of EB it appears that projects that have a single service that needs to scale horizontally may find success
+using EB. For systems that require several discrete workstreams to execute, Elastic Container Service (ECS)
+might be a better fit, due to it's capacity to better utilize ECS instances. How EB will perform within your system is
+highly dependent on it's configuration as well as the use case.
 
-ii. Click on “<> Developer settings at the bottom of the menu on the left of the page
+One callout that became clear throughout this implementation, and is a sentiment that appears to be echo'd throughout
+blogs is that EB can be incredibly difficult to debug. Even more painful, its unclear how to provide a meaningful audit
+trail for things that go wrong with the underling system. This may present as a major issue for business that have
+strong regulatory requirements.
 
-iii. Click on “Personal access tokens” on the menu on the left of the page and select “Tokens (classic)”
+## Discrete Optimizations:
 
-iv. Click “Generate new token” and select the classic option
+The current deployment could benefit heavily from infrastructure as code. Mor specifically code could be leveraged for
+following areas:
 
-v. Set an expiration date and then select the following "scopes": repo, admin:repo_hook
+- Configuration, deployment, and serving of Jenkins
+- Connecting Jenkins build pipelines to the loading of code used for applications within Elastic Beanstalk
+- Configuration, and deployment of Elastic Beanstalk
 
-This token can only be viewed ONCE! Make sure you enter the token properly (or save it) before leaving the page otherwise a new token must be generated!
+Additionally, from the triage that was experienced, it does appear that more could be done to connect the health state
+of the Elastic Beanstalk (EB) environment to the state of the Application. Most notably, the application may serve 5XX
+status codes, but the EB environment may still be marked as success. Alternatively, monitoring could be placed on
+available
+`Service Metric` to provide alerting to operational owners. As this was an initial deployment it's reasonable that no
+such monitoring was put in place, however, this is certainly an area for growth in the future.
 
-6. Connect GitHub repository to Jenkins
+The underlying Flask Application should be upgraded to Python 3.7 has reached EOL in 2023, which represents key
+weakpoint within this stack. AWS has already marked the Platform `Python 3.7 running on 64bit Amazon Linux 2/3.7.1`
+as `deprecated`, which is a key risk to the underlying business.
 
-	a. Enter the repository HTTPS URL and click "Validate"
-  
-	b. Make sure that the "Build Configuration" section says "Mode: by Jenkinsfile" and "Script Path: Jenkinsfile"
-  
-	c. Click "Save" and a build should start automatically
+# References
 
-Did the build stages successfully complete? If not, why? How did you resolve the issue?  What did each stage do?
+1. [AWS Elastic Beanstalk: when NOT to use it](https://insights.project-a.com/aws-elastic-beanstalk-when-not-to-use-it/)
+2. [The Pros and Cons of AWS Elastic Beanstalk: A Thorough Exploration](https://cloudvisor.co/blog/the-pros-and-cons-of-aws-elastic-beanstalk/#:~:text=In%20summary%2C%20while%20AWS%20Elastic,suitability%20for%20particular%20application%20types.)
+3. [AWS Elastic Beanstalk — Deploying An Application Using Beanstalk](https://medium.com/edureka/aws-elastic-beanstalk-647ae1d35e2)
+4. [Elastic Beanstalk Architecture: AWS Elastic Beanstalk](https://jayendrapatil.com/tag/elastic-beanstalk-architecture/)
+5. [AWS: Web server environments](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts-webserver.html)
+6. [AWS: Using Elastic Beanstalk with other AWS services](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/AWSHowTo.html)
 
-7. After successfully completing the build (provide screenshot of successful build in documentation), download the contents of the repository (the one in your personal GitHub NOT the kuralabs repo!) and upload a zip file of the application it to AWS Elastic Beanstalk.
-  
-	a. First, follow the instructions in this [LINK](https://scribehow.com/shared/How_to_Create_an_AWS_IAM_Role_for_Elastic_Beanstalk_and_EC2__kTg4B7zRRxCp-aYTJc-WLg) for "How to Create an AWS IAM Role for Elastic Beanstalk and EC2" and create the two IAM roles as specified.
 
-    b. Navigate to the AWS Elastic Beanstalk console page
-
-    c. Navigate to the "Environments" page on the left side menu and click on "Create Environment"
-
-    d. Create a "Web server environment" and enter the an Application name (Environment name should auto populate after that)
-
-    e. Choose "Python 3.7" as the "Managed platform"
-
-    f. "Upload your code" by choosing a "local file" and select the zipped application files you created earlier.
-
-    g. Under "Presets", make sure that "Single instance (free tier eligible) is selected and then click "Next"
-
-    h. Select the "Service role" and "EC2 profile" in the appropriate drop down menus and then click "Next"
-
-    i. Select the default VPC and Subnet "us-east-1a" and then click "Next"
-
-    j. Select "General Purpose (SSD) for "Root volume type" and assign it 10 GB.
-
-    k. Ensure that "Single instance" is selected for the "Environment type" and that ONLY "t3.micro" is selected for instance types (remove all others if present) and then click "Next"
-
-    l. Select 'BASIC' health reporting under the monitoring section. NOT "ENHANCED"!
-
-    m. Continue to the "Review" page and then click "Submit".
-
-    n. When the "environment is successfully launched", click on the link provided in the "Domain" and confirm that the application has deployed!
-
-8. Document! All projects have documentation so that others can read and understand what was done and how it was done. Create a README.md file in your repository that describes:
-
-	a. The "PURPOSE" of the Workload, 
-	
-	b. The "STEPS" taken (and why each was necessary/important, 
-	
-	c. A "SYSTEM DESIGN DIAGRAM" that is created in draw.io, 
-	
-	d. "ISSUES/TROUBLESHOOTING" that may or may have occured, 
-	
-	e. An "OPTIMIZATION" section for that answers the question: What are the benefits of using managed services for cloud infrastructure?  What are some issues that a retail bank would face choosing this method of deployment and how would you address/resolve them? What are other disadvantages of using elastic beanstalk or similar managed services for deploying applications?
-	
-	f. A "CONCLUSION" statement as well as any other sections you feel like you want to include.
-
-The README.md is a markdown file that has unique formatting.  Be sure to look up how to write in markdown or use a txt to markdown converter. 
